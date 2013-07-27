@@ -1,3 +1,4 @@
 config.yml
 *.txt
 images/*.jpg
+.DS_Store
