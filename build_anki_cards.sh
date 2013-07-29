@@ -6,7 +6,6 @@ if [ $# -ne 4 ] && [ $# -ne 5 ]; then
   exit 1
 fi
 
-bundle exec ./anki_import_file_builder.rb $1 $2 $3 $4 $5
+bundle exec ./anki_import_file_builder.rb $1 $2 $3 $4 $5 && open ./images
 
-open ./images
 #cp -f ./images/* ~/Documents/Anki/User\ 1/collection.media/
