@@ -6,11 +6,13 @@ require 'rmagick'
 require 'easy_translate'
 require 'google-search'
 require 'open-uri'
+require 'HTMLEntities'
 
 string_lang, word_type, INPUT_FILE_NAME, OUTPUT_FILE_NAME, skip_images = ARGV
 LANGUAGE = string_lang.to_sym
 WORD_TYPE = word_type.downcase
 SKIP_IMAGES = ( skip_images == "--skip-images" )
+BATCH_SIZE = 50
 
 CONFIG = YAML::load_file( File.join( __dir__, 'config.yml' ))
 
@@ -39,7 +41,7 @@ def expandForNoun( word_array )
   the_word_array = addThe( word_array )
   the_plural_array = addThe( plural_array )
 
-  the_word_array.zip( the_plural_array ).map { |pair| pair.join(' / ') }
+  the_word_array.zip( the_plural_array ).map { |pair| pair.join(' - ') }
 
 end
 
@@ -50,13 +52,13 @@ def downloadImage( source_word, foreign_word )
                                       :as_filetype => :jpg )
 
   image_url = images.first.uri
-  File.open( "images/#{source_word}.jpg", "w" ) do |file|
+  File.open( "images/#{source_word}-#{LANGUAGE}.jpg", "w" ) do |file|
     file.print open( image_url ).read
   end
 end
 
 File.open INPUT_FILE_NAME, 'r' do |input_file|
-  words = input_file.readline.chomp
+  words = input_file.read.chomp
   word_array = words.split(/,\s*/)
 
   if ( WORD_TYPE == "noun" )
@@ -67,15 +69,31 @@ File.open INPUT_FILE_NAME, 'r' do |input_file|
     source_array = word_array
   end
 
-  foreign_array = EasyTranslate.translate( source_array, :to => LANGUAGE, :key => CONFIG["google_api_key"] )
+  source_array_batches = source_array.each_slice( BATCH_SIZE ).to_a
+  encoded_foreign_array_batches = source_array_batches.map do |batch|
+    EasyTranslate.translate( batch, :to => LANGUAGE, :key => CONFIG["google_api_key"] )
+  end
+
+  encoded_foreign_array = encoded_foreign_array_batches.flatten
+
+  decoder = HTMLEntities.new
+  foreign_array = encoded_foreign_array.map do |word_set|
+    decoder.decode word_set
+  end
 
   single_foreign_word_array = getSingleWordArray( foreign_array )
 
   File.open OUTPUT_FILE_NAME, 'w' do |output_file|
     foreign_array.zip( word_array, single_foreign_word_array ).map do |triple|
-      output_file.write( "<img src=\"#{triple[1]}.jpg\" />; #{triple[0]}\n" )
       puts triple[1], triple[2]
-      downloadImage( triple[1], triple[2] ) unless SKIP_IMAGES
+      begin
+        downloadImage( triple[1], triple[2] ) unless SKIP_IMAGES
+        output_file.write( "<img src=\"#{triple[1]}-#{LANGUAGE}.jpg\" />; #{triple[0]}\n" )
+      rescue Exception => e
+        puts "ACK! problem setting up the card. Here's the info, then headed to next one..."
+        puts e.message
+        puts e.backtrace.inspect
+      end
     end
   end
 end
