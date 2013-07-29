@@ -12,6 +12,7 @@ GEM
       json
     google-search (1.0.3)
       json
+    htmlentities (4.3.1)
     i18n (0.6.4)
     json (1.8.0)
     minitest (4.7.5)
@@ -28,4 +29,5 @@ DEPENDENCIES
   activesupport
   easy_translate
   google-search
+  htmlentities
   rmagick
